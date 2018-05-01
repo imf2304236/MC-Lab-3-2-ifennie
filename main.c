@@ -2,15 +2,9 @@
 #include <math.h>
 #include "tm4c1294ncpdt.h"
 
-#define SYSCLK 16000000
-
 void configSys(void);
 
 void displayValue(unsigned long);
-
-void configTimer(void);
-
-void waitus(int);
 
 int main(void)
 {
@@ -56,8 +50,6 @@ void configSys(void)
     GPIO_PORTD_AHB_DEN_R |= 0x00000003;     // Enable PORTD(1:0)
     GPIO_PORTK_DEN_R |= 0x000000FF;         // Enable PORTK(7:0)
     GPIO_PORTE_AHB_DEN_R &= ~0x01;          // Enable PORTE(0)
-
-    configTimer();      // Configure Timer
 }
 
 void displayValue(unsigned long input)
@@ -75,14 +67,4 @@ void displayValue(unsigned long input)
     GPIO_PORTM_DATA_R = digits[3] << 4u | digits[2];        // Output LCD digits 3:2
     GPIO_PORTL_DATA_R = (GPIO_PORTL_DATA_R & ~2u) | 1u;     // Disable LCD digits 3:2, enable 1:0
     GPIO_PORTM_DATA_R = digits[1] << 4u | digits[0];        // Output LCD digits 1:0
-}
-
-void configTimer(void)
-{
-    SYSCTL_RCGCTIMER_R |= 1ul;  // Enable Timer 0 Module
-    TIMER0_CTL_R &= ~1ul;       // Disable TIMER0A
-    TIMER0_CFG_R |= 4ul;        // Set 16 bit mode
-    TIMER0_TAPR_R = 0x00;       // Set Prescaler = 0
-    TIMER0_TAMR_R |= 1ul;       // Set One shot mode
-    TIMER0_TAMR_R &= ~0x10ul;   // Set Count down, Compare Mode
 }
