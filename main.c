@@ -13,23 +13,12 @@ void configTimer(void);
 void waitus(int);
 
 int main(void) {
-    unsigned int i;
-    static unsigned char convInput;
+
 
     configSys();    // Configure Ports & Timer
 
     while(1) {
-        convInput = 0;    // Reset D/A Converter input byteword
 
-        // Iterate from MSB to LSB of D/A Converter input
-        for (i=7; i!=-1; --i) {
-            while (GPIO_PORTD_AHB_DATA_R & 2ul);    // Wait while the Stop button is pressed
-            GPIO_PORTK_DATA_R = (convInput | (uint32_t)1<<i); // Assert current bit
-            waitus(30);
-            if (!(GPIO_PORTD_AHB_DATA_R & 1ul))     // If PORTD(0) reads LOW
-                convInput &= ~(uint32_t)1<<i;       // Clear current bit of D/A Converter input
-            displayValue(convInput);    // Display calculated value on LCD screen
-        }
     }
 
     return 0;
@@ -37,18 +26,30 @@ int main(void) {
 
 void configSys(void)
 {
-    SYSCTL_RCGCGPIO_R |= 0x00000E08;            // Enable Ports M, L, K, D
-    while (!(SYSCTL_PRGPIO_R & 0x00000E08ul));  // Wait for Ports Ready flag
+    SYSCTL_RCGCGPIO_R |= 0x00000E14;            // Enable Ports M, L, K, E, D
+    while (!(SYSCTL_PRGPIO_R & 0x00000E14ul));  // Wait for Ports Ready flag
 
-    GPIO_PORTL_DIR_R |= 0x00000007;         // Configure PORTL(2:0) as outputs
-    GPIO_PORTM_DIR_R |= 0x000000FF;         // Configure PORTM(7:0) as outputs
-    GPIO_PORTD_AHB_DIR_R &= ~0x00000003ul;  // Configure PORTD(1:0) as inputs
-    GPIO_PORTK_DIR_R |= 0x000000FF;         // Configure PORTK(7:0) as outputs
+    SYSCTL_RCGCADC_R |= (1<<0);         // Enable ADC Module 0
+    while(SYSCTL_PRADC_R != 0x01);   // Wait for ADC Module ready flag
+
+    GPIO_PORTE_AHB_AFSEL_R |= 0x01;     // Enable PORTE(0) Alternative Function
+    GPIO_PORTE_AHB_AMSEL_R |= 0x01;     // Enable PORTE(0) Analog Function
+
+    ADC0_SSEMUX0_R = (uint32_t) 0x0;    // Set ADC0 Sampler to read from AIN[15:0]
+    ADC0_SSMUX0_R = (uint32_t) 0x03;    // Set ADC0 Sampler to read AIN3
+    ADC0_SSCTL0_R = (uint32_t) 1<<5;    // Set ADC0 Sampler Step 2 as end of seuqence
+
+    GPIO_PORTL_DIR_R |= 0x00000007;         // Set PORTL(2:0) to outputs
+    GPIO_PORTM_DIR_R |= 0x000000FF;         // Set PORTM(7:0) to outputs
+    GPIO_PORTD_AHB_DIR_R &= ~0x00000003ul;  // Set PORTD(1:0) to inputs
+    GPIO_PORTK_DIR_R |= 0x000000FF;         // Set PORTK(7:0) to outputs
+    GPIO_PORTE_AHB_DIR_R &= ~0x01;          // Set PORTE(0) to input
 
     GPIO_PORTL_DEN_R |= 0x00000007;         // Enable PORTL(2:0)
     GPIO_PORTM_DEN_R |= 0x000000FF;         // Enable PORTM(7:0)
     GPIO_PORTD_AHB_DEN_R |= 0x00000003;     // Enable PORTD(1:0)
     GPIO_PORTK_DEN_R |= 0x000000FF;         // Enable PORTK(7:0)
+    GPIO_PORTE_AHB_DEN_R &= ~0x01;      // Enable PORTE(0)
 
     configTimer();      // Configure Timer
 }
