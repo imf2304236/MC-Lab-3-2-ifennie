@@ -6,19 +6,24 @@
 
 void configSys(void);
 
-void displayValue(unsigned char);
+void displayValue(unsigned long);
 
 void configTimer(void);
 
 void waitus(int);
 
-int main(void) {
-
+int main(void)
+{
+    unsigned long result = 0;
 
     configSys();    // Configure Ports & Timer
 
     while(1) {
+        ADC0_PSSI_R |= 0x01;                // Start ADC0 Sample Sequencer
+        while (ADC0_SSFSTAT0_R & (1<<8));   // Wait for ADC0 Sample Seuqencer 0 not empty flag
+        result = ADC0_SSFIFO0_R;            // Read from ADC0 FIFO
 
+        displayValue(result);               // Display last result read
     }
 
     return 0;
@@ -30,14 +35,15 @@ void configSys(void)
     while (!(SYSCTL_PRGPIO_R & 0x00000E14ul));  // Wait for Ports Ready flag
 
     SYSCTL_RCGCADC_R |= (1<<0);         // Enable ADC Module 0
-    while(SYSCTL_PRADC_R != 0x01);   // Wait for ADC Module ready flag
+    while(!(SYSCTL_PRADC_R & 0x01));    // Wait for ADC Module ready flag
 
     GPIO_PORTE_AHB_AFSEL_R |= 0x01;     // Enable PORTE(0) Alternative Function
     GPIO_PORTE_AHB_AMSEL_R |= 0x01;     // Enable PORTE(0) Analog Function
 
-    ADC0_SSEMUX0_R = (uint32_t) 0x0;    // Set ADC0 Sampler to read from AIN[15:0]
-    ADC0_SSMUX0_R = (uint32_t) 0x03;    // Set ADC0 Sampler to read AIN3
-    ADC0_SSCTL0_R = (uint32_t) 1<<5;    // Set ADC0 Sampler Step 2 as end of seuqence
+    ADC0_ACTSS_R &= ~0x0F;              // Disable all ADC Sample Sequencer
+    ADC0_SSEMUX0_R = (uint32_t) 0x0;    // Set ADC0 Sample Sequencer to read from AIN[15:0]
+    ADC0_SSMUX0_R = (uint32_t) 0x03;    // Set ADC0 Sample Sequencer to read AIN3
+    ADC0_SSCTL0_R = (uint32_t) 1<<5;    // Set ADC0 Sample Sequencer to end on Step 2
 
     GPIO_PORTL_DIR_R |= 0x00000007;         // Set PORTL(2:0) to outputs
     GPIO_PORTM_DIR_R |= 0x000000FF;         // Set PORTM(7:0) to outputs
@@ -49,15 +55,15 @@ void configSys(void)
     GPIO_PORTM_DEN_R |= 0x000000FF;         // Enable PORTM(7:0)
     GPIO_PORTD_AHB_DEN_R |= 0x00000003;     // Enable PORTD(1:0)
     GPIO_PORTK_DEN_R |= 0x000000FF;         // Enable PORTK(7:0)
-    GPIO_PORTE_AHB_DEN_R &= ~0x01;      // Enable PORTE(0)
+    GPIO_PORTE_AHB_DEN_R &= ~0x01;          // Enable PORTE(0)
 
     configTimer();      // Configure Timer
 }
 
-void displayValue(unsigned char input)
+void displayValue(unsigned long input)
 {
     uint32_t digits[4] = {0,0,0,0};                         // Initialize LCD digits array
-    int result = (int) rint(input * (5.0/256) * 1000);      // Calculate result in mV
+    int result = (int) rint(input * (5.0/4096) * 1000);     // Calculate result in mV
     int i;
 
     for (i=3; i!=-1; --i) {                         // Iterate over LCD digits
@@ -79,14 +85,4 @@ void configTimer(void)
     TIMER0_TAPR_R = 0x00;       // Set Prescaler = 0
     TIMER0_TAMR_R |= 1ul;       // Set One shot mode
     TIMER0_TAMR_R &= ~0x10ul;   // Set Count down, Compare Mode
-}
-
-void waitus(int us)
-{
-    // Calculate & set Interval Load value
-    TIMER0_TAILR_R = (uint32_t) ceil(us*1000.0/SYSCLK) - 1;
-    TIMER0_CTL_R |= 1ul;            // Enable TIMER0A
-    while (!(TIMER0_RIS_R & 1ul));  // Poll TIMER0A Time-Out Interrupt
-    TIMER0_RIS_R |= 1ul;            // Clear TIMER0A Time-Out Interrupt
-    TIMER0_CTL_R &= ~1ul;           // Disable TIMER0A
 }
