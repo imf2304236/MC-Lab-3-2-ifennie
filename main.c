@@ -25,19 +25,12 @@ int main(void)
 
 void configSys(void)
 {
+    int i = 0;
     SYSCTL_RCGCGPIO_R |= 0x00000E14;            // Enable Ports M, L, K, E, D
     while (!(SYSCTL_PRGPIO_R & 0x00000E14ul));  // Wait for Ports Ready flag
 
     SYSCTL_RCGCADC_R |= (1<<0);         // Enable ADC Module 0
     while(!(SYSCTL_PRADC_R & 0x01));    // Wait for ADC Module ready flag
-
-    GPIO_PORTE_AHB_AFSEL_R |= 0x01;     // Enable PORTE(0) Alternative Function
-    GPIO_PORTE_AHB_AMSEL_R |= 0x01;     // Enable PORTE(0) Analog Function
-
-    ADC0_ACTSS_R &= ~0x0F;              // Disable all ADC Sample Sequencer
-    ADC0_SSEMUX0_R = (uint32_t) 0x0;    // Set ADC0 Sample Sequencer to read from AIN[15:0]
-    ADC0_SSMUX0_R = (uint32_t) 0x03;    // Set ADC0 Sample Sequencer to read AIN3
-    ADC0_SSCTL0_R = (uint32_t) 1<<5;    // Set ADC0 Sample Sequencer to end on Step 2
 
     GPIO_PORTL_DIR_R |= 0x00000007;         // Set PORTL(2:0) to outputs
     GPIO_PORTM_DIR_R |= 0x000000FF;         // Set PORTM(7:0) to outputs
@@ -50,6 +43,21 @@ void configSys(void)
     GPIO_PORTD_AHB_DEN_R |= 0x00000003;     // Enable PORTD(1:0)
     GPIO_PORTK_DEN_R |= 0x000000FF;         // Enable PORTK(7:0)
     GPIO_PORTE_AHB_DEN_R &= ~0x01;          // Enable PORTE(0)
+
+    GPIO_PORTE_AHB_AFSEL_R |= 0x01;     // Enable PORTE(0) Alternative Function
+    GPIO_PORTE_AHB_AMSEL_R |= 0x01;     // Enable PORTE(0) Analog Function
+
+    ADC0_ACTSS_R &= ~0x0F;              // Disable all ADC0 Sample Sequencers
+    SYSCTL_PLLFREQ0_R |= (1<<23);       // Power on PLL
+    while(!(SYSCTL_PLLSTAT_R & 0x01));  // Wait for PLL Power On flag
+    ADC0_CC_R |= 0x01; while(!(i++));   // Set ADC0 Clock Source to Alternate
+    SYSCTL_PLLFREQ0_R &= ~(1<<23);      // Enable ADC0 Sample Sequencer 1
+
+    ADC0_SSEMUX0_R = (uint32_t) 0x0;    // Set ADC0 Sample Sequencer to read from AIN[15:0]
+    ADC0_SSMUX0_R = (uint32_t) 0x03;    // Set ADC0 Sample Sequencer to read AIN3
+    ADC0_SSCTL0_R = (uint32_t) 1<<5;    // Set ADC0 Sample Sequencer to end on Step 2
+
+    ADC0_ACTSS_R |= 0x01;   // Enable ADC0 Sample Sequencer 1
 }
 
 void displayValue(unsigned long input)
